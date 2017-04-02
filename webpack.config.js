@@ -1,0 +1,27 @@
+const path = require('path');
+const nodeExternals = require('webpack-node-externals');
+
+module.exports = {
+  entry: ['babel-polyfill', './src/index.js'],
+  target: 'node',
+  module: {
+    loaders: [
+      {
+        test: /\.js$/,
+        loader: 'babel-loader',
+      },
+    ],
+    rules: [
+      {
+        test: /\.json$/,
+        use: 'json-loader',
+      },
+    ],
+  },
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'index.js',
+    libraryTarget: 'umd',
+  },
+  externals: [nodeExternals()],
+};

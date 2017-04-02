@@ -1,2 +1,2 @@
-# express-watchtower
-node-watchtower express server
+# docker-watchtower
+A docker image update server
