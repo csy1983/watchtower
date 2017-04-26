@@ -1,0 +1,13 @@
+version: '2'
+services:
+  watchtower:
+    image: watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    ports:
+      - 5050:5050
+    privileged: true
+    network_mode: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp

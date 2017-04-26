@@ -1,13 +1,13 @@
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
-		module.exports = factory(require("express"), require("babel-polyfill"), require("fs-extra"), require("http"), require("multer"), require("node-watchtower"), require("os"));
+		module.exports = factory(require("express"), require("body-parser"), require("debug"), require("fs-extra"), require("http"), require("multer"), require("node-fetch"), require("node-watchtower"), require("os"));
 	else if(typeof define === 'function' && define.amd)
-		define(["express", "babel-polyfill", "fs-extra", "http", "multer", "node-watchtower", "os"], factory);
+		define(["express", "body-parser", "debug", "fs-extra", "http", "multer", "node-fetch", "node-watchtower", "os"], factory);
 	else {
-		var a = typeof exports === 'object' ? factory(require("express"), require("babel-polyfill"), require("fs-extra"), require("http"), require("multer"), require("node-watchtower"), require("os")) : factory(root["express"], root["babel-polyfill"], root["fs-extra"], root["http"], root["multer"], root["node-watchtower"], root["os"]);
+		var a = typeof exports === 'object' ? factory(require("express"), require("body-parser"), require("debug"), require("fs-extra"), require("http"), require("multer"), require("node-fetch"), require("node-watchtower"), require("os")) : factory(root["express"], root["body-parser"], root["debug"], root["fs-extra"], root["http"], root["multer"], root["node-fetch"], root["node-watchtower"], root["os"]);
 		for(var i in a) (typeof exports === 'object' ? exports : root)[i] = a[i];
 	}
-})(this, function(__WEBPACK_EXTERNAL_MODULE_0__, __WEBPACK_EXTERNAL_MODULE_2__, __WEBPACK_EXTERNAL_MODULE_5__, __WEBPACK_EXTERNAL_MODULE_6__, __WEBPACK_EXTERNAL_MODULE_7__, __WEBPACK_EXTERNAL_MODULE_8__, __WEBPACK_EXTERNAL_MODULE_9__) {
+})(this, function(__WEBPACK_EXTERNAL_MODULE_0__, __WEBPACK_EXTERNAL_MODULE_4__, __WEBPACK_EXTERNAL_MODULE_5__, __WEBPACK_EXTERNAL_MODULE_6__, __WEBPACK_EXTERNAL_MODULE_7__, __WEBPACK_EXTERNAL_MODULE_8__, __WEBPACK_EXTERNAL_MODULE_9__, __WEBPACK_EXTERNAL_MODULE_10__, __WEBPACK_EXTERNAL_MODULE_11__) {
 return /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
 /******/ 	var installedModules = {};
@@ -16,9 +16,9 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	function __webpack_require__(moduleId) {
 /******/
 /******/ 		// Check if module is in cache
-/******/ 		if(installedModules[moduleId])
+/******/ 		if(installedModules[moduleId]) {
 /******/ 			return installedModules[moduleId].exports;
-/******/
+/******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = installedModules[moduleId] = {
 /******/ 			i: moduleId,
@@ -73,7 +73,7 @@ return /******/ (function(modules) { // webpackBootstrap
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 10);
+/******/ 	return __webpack_require__(__webpack_require__.s = 12);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -88,89 +88,92 @@ module.exports = require("express");
 
 "use strict";
 Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_http__ = __webpack_require__(6);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_http__ = __webpack_require__(7);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_http___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_http__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_express__ = __webpack_require__(0);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_express___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_express__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__router__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_node_watchtower__ = __webpack_require__(10);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_node_watchtower___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2_node_watchtower__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3__router__ = __webpack_require__(3);
 /* eslint-disable no-unused-vars */
 
 
 
 
-const PORT = 5888;
+
+const PORT = 5050;
+const DEFAULT_UPDATE_INTERVAL = 180;
+const DEFAULT_TIME_TO_WAIT_BEFORE_HEALTHY_CHECK = 10;
+
 const app = __WEBPACK_IMPORTED_MODULE_1_express___default()();
 const server = __WEBPACK_IMPORTED_MODULE_0_http___default.a.createServer(app);
 
-app.use(__webpack_require__.i(__WEBPACK_IMPORTED_MODULE_2__router__["a" /* default */])({
+const watchtower = new __WEBPACK_IMPORTED_MODULE_2_node_watchtower___default.a({
+  checkUpdateInterval: DEFAULT_UPDATE_INTERVAL,
+  timeToWaitBeforeHealthyCheck: DEFAULT_TIME_TO_WAIT_BEFORE_HEALTHY_CHECK,
+  pruneImages: true,
+});
+
+app.use(__webpack_require__.i(__WEBPACK_IMPORTED_MODULE_3__router__["a" /* default */])(watchtower, {
   uploadPath: '',
+  webhookPersistPath: '',
   sizeLimit: Infinity,
-  mimeType: 'application/zip;application/gzip;application/x-gzip',
-  onUpdateFound(containerInfo) {
-    /* Send notifications */
+  mimeType: 'application/zip;application/gzip;application/x-gzip;application/octet-stream',
+  willApplyUpdateForWatchtower(containerInfo) {
+    /* Stop web server before updating it */
+    server.close();
   },
-  willApplyUpdateFor(containerInfo, req, res) {
-    if (containerInfo.isWatchtower) {
-      /* Handle this request here because we are going to stop the server */
-      res.status(202).send(containerInfo);
-      /* Stop web server before updating it */
-      server.close();
-    }
+  didApplyUpdateForWatchtower(containerInfo) {
+    /* Restart web server after watchtower container is updated */
+    server.listen(PORT);
   },
-  didApplyUpdateFor(containerInfo, req, res) {
-    if (containerInfo.isWatchtower) {
-      /* Restart web server after watchtower container is updated */
-      server.listen(PORT);
-      /* Return true indicates that this request has been responsed */
-      return true;
-    }
-    /* Return false indicates that the router has to respond this request */
-    return false;
+  didFailedToApplyUpdateForWatchtower(error, containerInfo) {
+    /* Restart previous working version of web server */
+    server.listen(PORT);
   },
 }));
 
-server.listen(PORT);
+server.listen(PORT, 'localhost');
 
 
 /***/ }),
 /* 2 */
 /***/ (function(module, exports) {
 
-module.exports = require("babel-polyfill");
-
-/***/ }),
-/* 3 */
-/***/ (function(module, exports) {
-
 module.exports = {
-	"name": "docker-watchtower",
-	"version": "0.9.2",
-	"description": "A docker image update server.",
+	"name": "watchtower-server",
+	"version": "0.9.5",
+	"description": "A server for updating docker containers.",
 	"main": "dist/index.js",
 	"dependencies": {
 		"autobind-decorator": "^1.3.4",
+		"body-parser": "^1.17.1",
 		"debug": "^2.6.3",
 		"express": "^4.15.2",
 		"fs-extra": "^2.1.2",
 		"multer": "^1.3.0",
-		"node-watchtower": "^0.9.2"
+		"node-fetch": "^1.6.3",
+		"node-watchtower": "^0.9.5"
 	},
 	"devDependencies": {
-		"babel-core": "^6.23.1",
-		"babel-eslint": "^7.1.1",
-		"babel-loader": "^6.3.1",
-		"babel-plugin-transform-async-to-generator": "^6.22.0",
+		"babel-core": "^6.24.1",
+		"babel-eslint": "^7.2.3",
+		"babel-loader": "^7.0.0",
+		"babel-plugin-transform-async-to-generator": "^6.24.1",
 		"babel-plugin-transform-decorators-legacy": "^1.3.4",
 		"babel-plugin-transform-export-extensions": "^6.22.0",
 		"babel-polyfill": "^6.23.0",
-		"babel-preset-es2015": "^6.22.0",
+		"babel-preset-es2015": "^6.24.1",
 		"debug": "^2.6.3",
+		"dockerode": "^2.4.3",
 		"eslint": "^3.15.0",
 		"eslint-config-airbnb-base": "^11.1.0",
 		"eslint-plugin-import": "^2.2.0",
+		"form-data": "^2.1.4",
 		"json-loader": "^0.5.4",
 		"mocha": "^3.2.0",
-		"webpack": "^2.2.1",
+		"node-fetch": "^1.6.3",
+		"webpack": "^2.4.1",
 		"webpack-node-externals": "^1.5.4"
 	},
 	"keywords": [
@@ -185,7 +188,7 @@ module.exports = {
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/csy1983/docker-watchtower.git"
+		"url": "https://github.com/csy1983/watchtower-server.git"
 	},
 	"scripts": {
 		"test": "./node_modules/.bin/mocha -b --require babel-core/register --require babel-polyfill"
@@ -193,22 +196,26 @@ module.exports = {
 };
 
 /***/ }),
-/* 4 */
+/* 3 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_express__ = __webpack_require__(0);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_express___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_express__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_fs_extra__ = __webpack_require__(5);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_fs_extra___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_fs_extra__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_multer__ = __webpack_require__(7);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_multer___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2_multer__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3_os__ = __webpack_require__(9);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3_os___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3_os__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_node_watchtower__ = __webpack_require__(8);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_node_watchtower___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_4_node_watchtower__);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__package_json__ = __webpack_require__(3);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5__package_json___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_5__package_json__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_body_parser__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_body_parser___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_body_parser__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_debug__ = __webpack_require__(5);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_debug___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_1_debug__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_express__ = __webpack_require__(0);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2_express___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_2_express__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3_node_fetch__ = __webpack_require__(9);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_3_node_fetch___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_3_node_fetch__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_fs_extra__ = __webpack_require__(6);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_4_fs_extra___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_4_fs_extra__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5_multer__ = __webpack_require__(8);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_5_multer___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_5_multer__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6_os__ = __webpack_require__(11);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_6_os___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_6_os__);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7__package_json__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_7__package_json___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_7__package_json__);
 
 
 
@@ -216,117 +223,185 @@ module.exports = {
 
 
 
-const DEFAULT_UPDATE_INTERVAL = 3;
-const DEFAULT_TIME_TO_WAIT_BEFORE_HEALTHY_CHECK = 10;
-const DEFAULT_UPDATE_IMAGE_PATH = `${__WEBPACK_IMPORTED_MODULE_3_os___default.a.homedir()}/.watchtower/images`;
+
+
+const IMAGE_UPLOAD_PATH = `${__WEBPACK_IMPORTED_MODULE_6_os___default.a.homedir()}/.watchtower/images`;
+const WEBHOOK_PERSIST_PATH = `${__WEBPACK_IMPORTED_MODULE_6_os___default.a.homedir()}/.watchtower/webhook`;
+const WEBHOOK_PERSIST_FILE = 'db.json';
+const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:api');
 
 /**
  * Create watchtower express router.
  */
-/* harmony default export */ __webpack_exports__["a"] = (function (options) {
-  const router = __WEBPACK_IMPORTED_MODULE_0_express___default.a.Router();
-  const availableUpdates = {};
+/* harmony default export */ __webpack_exports__["a"] = (function (watchtower, options) {
+  const router = __WEBPACK_IMPORTED_MODULE_2_express___default.a.Router();
+  const webhookPersistFile = `${WEBHOOK_PERSIST_PATH}/${WEBHOOK_PERSIST_FILE}`;
+  let webhookPersist = {
+    updateFound: [],
+    updateNotFound: [],
+  };
 
-  let watchtower = new __WEBPACK_IMPORTED_MODULE_4_node_watchtower___default.a({
-    checkUpdateInterval: DEFAULT_UPDATE_INTERVAL,
-    timeToWaitBeforeHealthyCheck: DEFAULT_TIME_TO_WAIT_BEFORE_HEALTHY_CHECK,
+  /* Create webhook persistence path */
+  __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.ensureDirSync(WEBHOOK_PERSIST_PATH);
+
+  /* Check existence for webhook config file */
+  __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.access(webhookPersistFile, __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.constants.R_OK | __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.constants.W_OK, (exist) => {
+    if (exist) {
+      /* Create default webhook config file */
+      __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.writeJson(webhookPersistFile, webhookPersist, (writeError) => {
+        if (writeError) {
+          throw new Error(`Unable to create webhook config file. ${writeError.message}`);
+        }
+      });
+    } else {
+      __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.readJson(webhookPersistFile, (readError, data) => {
+        if (readError) {
+          throw new Error(`Unable to read webhook config file. ${readError.message}`);
+        }
+        webhookPersist = data;
+      });
+    }
   });
 
-  function addEventListeners() {
-    watchtower.on('updateFound', (containerInfo) => {
-      availableUpdates[containerInfo.Image] = containerInfo;
-      if (options.onUpdateFound) {
-        containerInfo.isWatchtower = watchtower.isWatchtower(containerInfo);
-        options.onUpdateFound(containerInfo);
-      }
-    });
-  }
-
-  /* Attach watchtower event listeners */
-  addEventListeners();
-
-  /* Activate watchtower with default configs */
-  watchtower.activate();
-
-  /* Clear old update images and create update image uploader */
-  const uploadPath = options.uploadPath || DEFAULT_UPDATE_IMAGE_PATH;
-  // TODO: clear old images
-
-  const storage = __WEBPACK_IMPORTED_MODULE_2_multer___default.a.diskStorage({
+  const storage = __WEBPACK_IMPORTED_MODULE_5_multer___default.a.diskStorage({
     destination(req, file, cb) {
-      __WEBPACK_IMPORTED_MODULE_1_fs_extra___default.a.mkdirp(uploadPath, err => cb(err, uploadPath));
+      /* Create a clean image folder */
+      __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.removeSync(IMAGE_UPLOAD_PATH);
+      __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.mkdirp(IMAGE_UPLOAD_PATH, err => cb(err, IMAGE_UPLOAD_PATH));
     },
     filename(req, file, cb) {
       cb(null, `${file.fieldname}-${Date.now()}`);
     },
   });
 
-  const uploader = __WEBPACK_IMPORTED_MODULE_2_multer___default()({
+  const uploader = __WEBPACK_IMPORTED_MODULE_5_multer___default()({
     storage,
     limits: { fileSize: options.sizeLimit || Infinity },
     fileFilter(req, file, cb) {
       if (options.mimeType && options.mimeType.indexOf(file.mimetype) < 0) {
-        cb(new Error({ code: 415, message: `Bad MIME Type:${file.mimetype}` }));
+        cb({ code: 415, message: `Bad MIME Type:${file.mimetype}` });
       } else {
         cb(null, true);
       }
     },
   }).any();
 
-  /**
-   * Restart watchtower with new configs
-   * @param  {Number} checkUpdateInterval
-   * @param  {Number} timeToWaitBeforeHealthyCheck
-   * @return 200 {}       Success
-   * @return 500 {String} Error message
-   */
-  router.post('/', (req, res) => {
-    const checkUpdateInterval = req.params.checkUpdateInterval;
-    const timeToWaitBeforeHealthyCheck = req.params.timeToWaitBeforeHealthyCheck;
+  watchtower.on('updateFound', (image) => {
+    webhookPersist.updateFound.forEach((url) => {
+      __WEBPACK_IMPORTED_MODULE_3_node_fetch___default()(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `image=${image}`,
+      }).then((res) => {
+        DEBUG(`POSTed 'updateFound' event with image ${image} to ${url}. ${res.json()}`);
+        if (res.status === 100) {
+          /* Apply update immediately */
+          const containerInfo = watchtower.getAvailableUpdate(image);
+          if (containerInfo) {
+            if (watchtower.isWatchtower(containerInfo)) {
+              if (options.willApplyUpdateForWatchtower) {
+                options.willApplyUpdateForWatchtower(containerInfo);
+              }
+            }
 
-    /* Restart watchtower */
-    watchtower.inactivate().then(() => {
-      watchtower.removeAllListeners();
-
-      watchtower = new __WEBPACK_IMPORTED_MODULE_4_node_watchtower___default.a({
-        checkUpdateInterval,
-        timeToWaitBeforeHealthyCheck,
-      });
-
-      addEventListeners();
-
-      watchtower.activate().then(() => {
-        res.sendStatus(200);
-      }).catch((error) => {
-        res.status(500).send(error.message);
+            watchtower.applyUpdate(containerInfo).then(() => {
+              if (watchtower.isWatchtower(containerInfo)) {
+                if (options.didApplyUpdateForWatchtower) {
+                  options.didApplyUpdateForWatchtower(containerInfo);
+                }
+              }
+            }).catch((error) => {
+              if (watchtower.isWatchtower(containerInfo)) {
+                if (options.didFailedToApplyUpdateForWatchtower) {
+                  options.didFailedToApplyUpdateForWatchtower(error, containerInfo);
+                }
+              }
+              DEBUG(`Failed to apply update immediately. ${error}`);
+            });
+          }
+        }
+      })
+      .catch((error) => {
+        DEBUG(`Failed to POST 'updateFound' event with image ${image} to ${url}. ${error}`);
       });
     });
   });
 
+  watchtower.on('updateNotFound', (image) => {
+    webhookPersist.updateNotFound.forEach((url) => {
+      __WEBPACK_IMPORTED_MODULE_3_node_fetch___default()(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `image=${image}`,
+      }).then((res) => {
+        DEBUG(`POSTed 'updateNotFound' event with image ${image} to ${url}. ${res.json()}`);
+      })
+      .catch((error) => {
+        DEBUG(`Failed to POST 'updateNotFound' event with image ${image} to ${url}. ${error}`);
+      });
+    });
+  });
+
+  /* Activate watchtower with default configs */
+  watchtower.activate();
+
+  /* Parse application/x-www-form-urlencoded */
+  router.use(__WEBPACK_IMPORTED_MODULE_0_body_parser___default.a.urlencoded({ extended: false }));
+
   /**
-   * Set check update interval
-   * @param  {Number} checkUpdateInterval Check update interval
-   * @return {200} Success
+   * Get watchtower server version
    */
-  router.put('/', (req, res) => {
-    const interval = req.params.checkUpdateInterval;
-    watchtower.setCheckUpdateInterval(interval);
-    res.sendStatus(200);
+  router.get('/version', (req, res) => {
+    res.status(200).send(__WEBPACK_IMPORTED_MODULE_7__package_json__["version"]);
+  });
+
+  /**
+   * Restart watchtower with new configs
+   * @param  {Number} checkUpdateInterval          Check update interval in seconds
+   * @param  {Number} timeToWaitBeforeHealthyCheck Time to wait before healthy for updated containers
+   * @return {Status} 200                          Success
+   * @return {Status} 400                          Bad parameters
+   * @return {String} 500                          Error message
+   */
+  router.post('/reconfig', (req, res) => {
+    const checkUpdateInterval = req.body.checkUpdateInterval;
+    const timeToWaitBeforeHealthyCheck = req.body.timeToWaitBeforeHealthyCheck;
+
+    /* Update watchtower and restart it */
+    let error = watchtower.updateConfig({
+      checkUpdateInterval,
+      timeToWaitBeforeHealthyCheck,
+    });
+
+    if (error) res.sendStatus(400);
+    else res.sendStatus(200);
+  });
+
+  /**
+   * Set update check polling interval
+   * @param  {Number} checkUpdateInterval Check update interval
+   * @return {Status} 200                 Success
+   */
+  router.put('/pollint', (req, res) => {
+    const checkUpdateInterval = req.body.checkUpdateInterval;
+    let error = watchtower.updateConfig({ checkUpdateInterval });
+    if (error) res.sendStatus(400);
+    else res.sendStatus(200);
   });
 
   /**
    * Add registry server auth info
+   * @param  {String} serveraddress Registry server URL
    * @param  {String} username      Login user name
    * @param  {String} password      Login password
    * @param  {String} auth          Base64 encoded auth credentials (Optional)
    * @param  {String} email         User email (Optional)
-   * @param  {String} serveraddress Registry server URL
-   * @return 200 {} Success
-   * @return 400 {} Bad parameters
+   * @return {Status} 200           Success
+   * @return {Status} 400           Bad parameters
    */
   router.post('/registry', (req, res) => {
-    const { username, password, auth, email, serveraddress } = req.params;
-    if (watchtower.addRegistryAuth(serveraddress, { username, password, auth, email })) {
+    const { serveraddress, username, password, auth, email } = req.body;
+    if (watchtower.addRegistryAuth({ serveraddress, username, password, auth, email })) {
       res.sendStatus(200);
     } else {
       res.sendStatus(400);
@@ -334,27 +409,101 @@ const DEFAULT_UPDATE_IMAGE_PATH = `${__WEBPACK_IMPORTED_MODULE_3_os___default.a.
   });
 
   /**
-   * Apply update
-   * @param  {String} repoTag Apply image with given repo:tag
-   * @return 200 {Object} Updated container info object
-   * @return 404 {}       Image not found
-   * @return 500 {String} Error message
+   * Add webhooks for given event.
+   * Events available:
+   *   'updateFound'
+   *   'updateNotFound'
+   *
+   * @param  {String} event Event name to listen
+   * @param  {String} url   Webhook URL for the event
+   * @return {Status} 200   Success
+   * @return {Status} 400   Invalid parameters
+   * @return {Status} 404   Given event not found
+   * @return {String} 500   Error message
    */
-  router.post('/update/apply', (req, res) => {
-    const containerInfo = this.availableUpdates[req.params.repoTag];
+  router.post('/webhook', (req, res) => {
+    const { event, url } = req.body;
+
+    if (!event || !url) {
+      res.sendStatus(400);
+    } else if (!webhookPersist[event]) {
+      res.sendStatus(404);
+    } else if (webhookPersist[event].indexOf(url) >= 0) {
+      res.sendStatus(200);
+    } else {
+      webhookPersist[event].push(url);
+      __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.writeJson(webhookPersistFile, webhookPersist, (writeError) => {
+        if (writeError) {
+          res.status(500).send(`Unable to write webhook config file. ${writeError.message}`);
+        } else {
+          res.sendStatus(200);
+        }
+      });
+    }
+  });
+
+  /**
+   * Remove webhook URL from given event.
+   * @param  {String} event Event name of the webhook
+   * @param  {String} url   Webhook URL to be removed from given event
+   * @return {Status} 200   Success
+   * @return {Status} 400   Invalid parameters
+   * @return {Status} 404   Given event or URL not found
+   * @return {String} 500   Error message
+   */
+  router.delete('/webhook', (req, res) => {
+    const { event, url } = req.body;
+
+    if (!event || !url) {
+      res.sendStatus(400);
+    } else if (!webhookPersist[event] || webhookPersist[event].indexOf(url) < 0) {
+      res.sendStatus(404);
+    } else {
+      let index = webhookPersist[event].indexOf(url);
+      webhookPersist[event].splice(index, 1);
+      __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.writeJson(webhookPersistFile, webhookPersist, (writeError) => {
+        if (writeError) {
+          res.status(500).send(`Unable to write webhook config file. ${writeError.message}`);
+        } else {
+          res.sendStatus(200);
+        }
+      });
+    }
+  });
+
+  /**
+   * Apply update for given image
+   * @param  {String} image Image repo:tag to be applied
+   * @return {Object} 200   Updated container info object
+   * @return {Status} 202   Updating watchtower image, server will shutdown for a while
+   * @return {Status} 404   Image not found
+   * @return {String} 500   Error message
+   */
+  router.post('/apply', (req, res) => {
+    const containerInfo = watchtower.getAvailableUpdate(req.body.image);
     if (containerInfo) {
-      if (options.willApplyUpdateFor) {
-        options.willApplyUpdateFor(containerInfo, req, res);
+      if (watchtower.isWatchtower(containerInfo)) {
+        res.status(202).send(containerInfo);
+
+        if (options.willApplyUpdateForWatchtower) {
+          options.willApplyUpdateForWatchtower(containerInfo);
+        }
       }
+
       watchtower.applyUpdate(containerInfo).then((updatedContainerInfo) => {
-        if (options.didApplyUpdateFor) {
-          if (!options.didApplyUpdateFor(containerInfo, req, res)) {
-            res.status(200).send(updatedContainerInfo);
+        if (watchtower.isWatchtower(containerInfo)) {
+          if (options.didApplyUpdateForWatchtower) {
+            options.didApplyUpdateForWatchtower(containerInfo);
           }
         } else {
           res.status(200).send(updatedContainerInfo);
         }
       }).catch((error) => {
+        if (watchtower.isWatchtower(containerInfo)) {
+          if (options.didFailedToApplyUpdateForWatchtower) {
+            options.didFailedToApplyUpdateForWatchtower(error, containerInfo);
+          }
+        }
         res.status(500).send(error.message);
       });
     } else {
@@ -364,38 +513,26 @@ const DEFAULT_UPDATE_IMAGE_PATH = `${__WEBPACK_IMPORTED_MODULE_3_os___default.a.
 
   /**
    * Upload image and load it to local docker environment
-   * @param  {File} file File to upload
-   * @return 200 {String} Repo tag of the image
-   * @return 500 {String} Error message
+   * @param  {Boolean} latest Tag image to latest
+   * @param  {File}    file   File to upload
+   * @return {Array}   200    Repo tags of the image
+   * @return {String}  500    Error message
    */
-  router.post('/load', uploader, (req, res) => {
-    watchtower.load(req.files[0].path).then((repoTags) => {
-      res.status(200).send(repoTags[0]);
-    }).catch((error) => {
-      res.status(500).send(error.message);
-    });
-  });
+  router.post('/upload', (req, res) => {
+    uploader(req, res, (uploadError) => {
+      if (uploadError) {
+        res.status(uploadError.code).send(uploadError.message);
+        return;
+      }
 
-  /**
-   * Push image with given repo:tag
-   * @param  {String} repoTag Image repo tag
-   * @return 200 {}       Success
-   * @return 500 {String} Error message
-   */
-  router.post('/push', (req, res) => {
-    const repoTag = req.params.repoTag;
-    watchtower.push(repoTag).then(() => {
-      res.sendStatus(200);
-    }).catch((error) => {
-      res.status(500).send(error.message);
+      watchtower.upload(req.files[0].path, { tagToLatest: !!req.query.latest }).then((repoTag) => {
+        /* Image file has been loaded, remove it */
+        __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.remove(req.files[0].path);
+        res.status(200).send(repoTag);
+      }).catch((error) => {
+        res.status(500).send(error.message);
+      });
     });
-  });
-
-  /**
-   * Ping watchtower server
-   */
-  router.get('/version', (req, res) => {
-    res.status(200).send(__WEBPACK_IMPORTED_MODULE_5__package_json__["version"]);
   });
 
   return router;
@@ -403,40 +540,57 @@ const DEFAULT_UPDATE_IMAGE_PATH = `${__WEBPACK_IMPORTED_MODULE_3_os___default.a.
 
 
 /***/ }),
+/* 4 */
+/***/ (function(module, exports) {
+
+module.exports = require("body-parser");
+
+/***/ }),
 /* 5 */
 /***/ (function(module, exports) {
 
-module.exports = require("fs-extra");
+module.exports = require("debug");
 
 /***/ }),
 /* 6 */
 /***/ (function(module, exports) {
 
-module.exports = require("http");
+module.exports = require("fs-extra");
 
 /***/ }),
 /* 7 */
 /***/ (function(module, exports) {
 
-module.exports = require("multer");
+module.exports = require("http");
 
 /***/ }),
 /* 8 */
 /***/ (function(module, exports) {
 
-module.exports = require("node-watchtower");
+module.exports = require("multer");
 
 /***/ }),
 /* 9 */
 /***/ (function(module, exports) {
 
-module.exports = require("os");
+module.exports = require("node-fetch");
 
 /***/ }),
 /* 10 */
+/***/ (function(module, exports) {
+
+module.exports = require("node-watchtower");
+
+/***/ }),
+/* 11 */
+/***/ (function(module, exports) {
+
+module.exports = require("os");
+
+/***/ }),
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(2);
 module.exports = __webpack_require__(1);
 
 

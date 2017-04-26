@@ -1,2 +1,2 @@
-# docker-watchtower
-A docker image update server
+# watchtower-server
+A server for updating docker containers.
