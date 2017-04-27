@@ -40,13 +40,13 @@ describe('Watchtower Server', function() {
     });
   });
 
-  describe('reconfig server test', function() {
+  describe('configure server test', function() {
     it('should return 200 OK', function(done) {
       let form = [
         encodeURI('checkUpdateInterval=120'),
         encodeURI('timeToWaitBeforeHealthyCheck=5'),
       ];
-      fetch(`${serverURL}/reconfig`, {
+      fetch(`${serverURL}/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: form.join('&'),

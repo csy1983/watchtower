@@ -145,7 +145,7 @@ export default function (watchtower, options) {
    * @return {Status} 400                          Bad parameters
    * @return {String} 500                          Error message
    */
-  router.post('/reconfig', (req, res) => {
+  router.post('/config', (req, res) => {
     const checkUpdateInterval = req.body.checkUpdateInterval;
     const timeToWaitBeforeHealthyCheck = req.body.timeToWaitBeforeHealthyCheck;
 

@@ -141,9 +141,9 @@ server.listen(PORT, 'localhost');
 /***/ (function(module, exports) {
 
 module.exports = {
-	"name": "watchtower-server",
+	"name": "watchtower",
 	"version": "0.9.5",
-	"description": "A server for updating docker containers.",
+	"description": "A docker container update server.",
 	"main": "dist/index.js",
 	"dependencies": {
 		"autobind-decorator": "^1.3.4",
@@ -188,7 +188,7 @@ module.exports = {
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/csy1983/watchtower-server.git"
+		"url": "https://github.com/csy1983/watchtower.git"
 	},
 	"scripts": {
 		"test": "./node_modules/.bin/mocha -b --require babel-core/register --require babel-polyfill"
@@ -363,7 +363,7 @@ const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:a
    * @return {Status} 400                          Bad parameters
    * @return {String} 500                          Error message
    */
-  router.post('/reconfig', (req, res) => {
+  router.post('/config', (req, res) => {
     const checkUpdateInterval = req.body.checkUpdateInterval;
     const timeToWaitBeforeHealthyCheck = req.body.timeToWaitBeforeHealthyCheck;
 
