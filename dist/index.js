@@ -162,7 +162,7 @@ server.listen(PORT, 'localhost');
 
 module.exports = {
 	"name": "watchtower",
-	"version": "0.9.7",
+	"version": "0.9.8",
 	"description": "A docker container update server.",
 	"main": "dist/index.js",
 	"dependencies": {
@@ -174,7 +174,7 @@ module.exports = {
 		"fs-extra": "^2.1.2",
 		"multer": "^1.3.0",
 		"node-fetch": "^1.6.3",
-		"node-watchtower": "^0.9.7"
+		"node-watchtower": "^0.9.8"
 	},
 	"devDependencies": {
 		"babel-core": "^6.24.1",
