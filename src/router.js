@@ -27,8 +27,8 @@ export default function (watchtower, options) {
   fs.ensureDirSync(WEBHOOK_PERSIST_PATH);
 
   /* Check existence for webhook config file */
-  fs.access(webhookPersistFile, fs.constants.R_OK | fs.constants.W_OK, (exist) => {
-    if (exist) {
+  fs.access(webhookPersistFile, fs.constants.R_OK | fs.constants.W_OK, (error) => {
+    if (error) {
       /* Create default webhook config file */
       fs.writeJson(webhookPersistFile, webhookPersist, (writeError) => {
         if (writeError) {

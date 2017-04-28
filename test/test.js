@@ -138,9 +138,9 @@ describe('Watchtower Server', function() {
           throw new Error(`Unable to read webhook config file. ${readError.message}`);
         }
 
-        if (webhooks.updateFound.includes('http://localhost:8889/update/found') &&
+        if (webhooks.updateFound.includes(`${webhookServerURL}/update/found`) &&
           webhooks.updateFound.includes('http://localhost/dummy') &&
-          webhooks.updateNotFound.includes('http://localhost:8889/update/notfound')) {
+          webhooks.updateNotFound.includes(`${webhookServerURL}/update/notfound`)) {
           done();
         } else {
           done('Webhook database error');
@@ -171,8 +171,8 @@ describe('Watchtower Server', function() {
           throw new Error(`Unable to read webhook config file. ${readError.message}`);
         }
 
-        if (webhooks.updateFound.includes('http://localhost:8889/update/found') &&
-          webhooks.updateNotFound.includes('http://localhost:8889/update/notfound')) {
+        if (webhooks.updateFound.includes(`${webhookServerURL}/update/found`) &&
+          webhooks.updateNotFound.includes(`${webhookServerURL}/update/notfound`)) {
           done();
         } else {
           done('Webhook database error');

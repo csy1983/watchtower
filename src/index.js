@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import 'babel-polyfill';
 import http from 'http';
 import express from 'express';
 import Watchtower from 'node-watchtower';
@@ -15,6 +16,7 @@ const watchtower = new Watchtower({
   checkUpdateInterval: DEFAULT_UPDATE_INTERVAL,
   timeToWaitBeforeHealthyCheck: DEFAULT_TIME_TO_WAIT_BEFORE_HEALTHY_CHECK,
   pruneImages: true,
+  retireOldWatchtower: true,
 });
 
 app.use(router(watchtower, {
@@ -28,12 +30,28 @@ app.use(router(watchtower, {
   },
   didApplyUpdateForWatchtower(containerInfo) {
     /* Restart web server after watchtower container is updated */
-    server.listen(PORT);
+    server.listen(PORT, 'localhost');
   },
   didFailedToApplyUpdateForWatchtower(error, containerInfo) {
     /* Restart previous working version of web server */
-    server.listen(PORT);
+    server.listen(PORT, 'localhost');
   },
 }));
+
+function retry() {
+  console.log('Address in use, retrying...');
+  setTimeout(() => {
+    server.listen(PORT, 'localhost');
+  }, 3000);
+}
+
+process.on('uncaughtException', (error) => {
+  if (error.errno === 'EADDRINUSE') {
+    retry();
+  } else {
+    console.log(error);
+    process.exit(1);
+  }
+});
 
 server.listen(PORT, 'localhost');

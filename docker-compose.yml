@@ -1,7 +1,7 @@
 version: '2'
 services:
   watchtower:
-    image: watchtower
+    image: weblab-master:5000/watchtower
     container_name: watchtower
     restart: unless-stopped
     ports:
