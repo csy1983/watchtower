@@ -12,7 +12,7 @@ const TEST_REPO_LATEST = 'alpine';
 const TEST_REPO_OLD = 'alpine:3.4';
 const TEST_PRIVATE_IMAGE = 'test/images/alpine-3.5.tar.gz';
 const TEST_PRIVATE_REPO = 'csy-mbp:5000/alpine';
-const DEBUG = debug('node-watchtower:test');
+const DEBUG = debug('watchtower:test');
 const docker = new Docker();
 const serverURL = 'http://localhost:5050';
 const webhookServerURL = 'http://localhost:8080';
@@ -241,7 +241,7 @@ describe('Watchtower Server', function() {
     it('should upload an image', function(done) {
       const form = new FormData();
       form.append('image-file', fs.createReadStream(TEST_PRIVATE_IMAGE));
-      fetch(`${serverURL}/upload?latest=1`, {
+      fetch(`${serverURL}/upload?latest=1&registry=${encodeURIComponent('csy-mbp:5000')}`, {
         method: 'POST',
         headers: form.getHeaders(),
         body: form,

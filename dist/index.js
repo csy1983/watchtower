@@ -162,9 +162,9 @@ server.listen(PORT, 'localhost');
 
 module.exports = {
 	"name": "watchtower",
-	"version": "0.9.8",
+	"version": "0.9.11",
 	"description": "A docker container update server.",
-	"main": "dist/index.js",
+	"bin": "dist/index.js",
 	"dependencies": {
 		"autobind-decorator": "^1.3.4",
 		"babel-polyfill": "^6.23.0",
@@ -174,7 +174,7 @@ module.exports = {
 		"fs-extra": "^2.1.2",
 		"multer": "^1.3.0",
 		"node-fetch": "^1.6.3",
-		"node-watchtower": "^0.9.8"
+		"node-watchtower": "git+https://github.com/csy1983/node-watchtower.git"
 	},
 	"devDependencies": {
 		"babel-core": "^6.24.1",
@@ -248,7 +248,7 @@ module.exports = {
 const IMAGE_UPLOAD_PATH = `${__WEBPACK_IMPORTED_MODULE_6_os___default.a.homedir()}/.watchtower/images`;
 const WEBHOOK_PERSIST_PATH = `${__WEBPACK_IMPORTED_MODULE_6_os___default.a.homedir()}/.watchtower/webhook`;
 const WEBHOOK_PERSIST_FILE = 'db.json';
-const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:api');
+const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('watchtower:server');
 
 /**
  * Create watchtower express router.
@@ -307,15 +307,18 @@ const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:a
   }).any();
 
   watchtower.on('updateFound', (image) => {
-    webhookPersist.updateFound.forEach((url) => {
-      __WEBPACK_IMPORTED_MODULE_3_node_fetch___default()(url, {
+    DEBUG(`Got 'updateFound' event for ${image}`);
+    webhookPersist.updateFound.forEach((webhook) => {
+      DEBUG(`Calling webhook: ${webhook}`);
+      __WEBPACK_IMPORTED_MODULE_3_node_fetch___default()(webhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `image=${image}`,
       }).then((res) => {
-        DEBUG(`POSTed 'updateFound' event with image ${image} to ${url}. ${res.json()}`);
-        if (res.status === 100) {
+        DEBUG(`Sent 'updateFound' event with image ${image} to ${webhook}.`);
+        if (res.status === 202) {
           /* Apply update immediately */
+          DEBUG(`Apply update for ${image} immediately`);
           const containerInfo = watchtower.getAvailableUpdate(image);
           if (containerInfo) {
             if (watchtower.isWatchtower(containerInfo)) {
@@ -342,22 +345,25 @@ const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:a
         }
       })
       .catch((error) => {
-        DEBUG(`Failed to POST 'updateFound' event with image ${image} to ${url}. ${error}`);
+        DEBUG(`Failed to POST 'updateFound' event with image ${image} to ${webhook}. ${error}`);
       });
     });
   });
 
   watchtower.on('updateNotFound', (image) => {
-    webhookPersist.updateNotFound.forEach((url) => {
-      __WEBPACK_IMPORTED_MODULE_3_node_fetch___default()(url, {
+    DEBUG(`Got 'updateNotFound' event for ${image}`);
+
+    webhookPersist.updateNotFound.forEach((webhook) => {
+      DEBUG(`Calling webhook: ${webhook}`);
+      __WEBPACK_IMPORTED_MODULE_3_node_fetch___default()(webhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `image=${image}`,
-      }).then((res) => {
-        DEBUG(`POSTed 'updateNotFound' event with image ${image} to ${url}. ${res.json()}`);
+      }).then((res) => { // eslint-disable-line
+        DEBUG(`Sent 'updateNotFound' event with image ${image} to ${webhook}.`);
       })
       .catch((error) => {
-        DEBUG(`Failed to POST 'updateNotFound' event with image ${image} to ${url}. ${error}`);
+        DEBUG(`Failed to POST 'updateNotFound' event with image ${image} to ${webhook}. ${error}`);
       });
     });
   });
@@ -372,6 +378,7 @@ const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:a
    * Get watchtower server version
    */
   router.get('/version', (req, res) => {
+    DEBUG(`[version] ${__WEBPACK_IMPORTED_MODULE_7__package_json__["version"]}`);
     res.status(200).send(__WEBPACK_IMPORTED_MODULE_7__package_json__["version"]);
   });
 
@@ -510,6 +517,7 @@ const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:a
         }
       }
 
+      DEBUG(`[apply] applying image ${req.body.image}`);
       watchtower.applyUpdate(containerInfo).then((updatedContainerInfo) => {
         if (watchtower.isWatchtower(containerInfo)) {
           if (options.didApplyUpdateForWatchtower) {
@@ -519,6 +527,7 @@ const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:a
           res.status(200).send(updatedContainerInfo);
         }
       }).catch((error) => {
+        DEBUG(`[apply] apply image ${req.body.image} failed: ${error.message}`);
         if (watchtower.isWatchtower(containerInfo)) {
           if (options.didFailedToApplyUpdateForWatchtower) {
             options.didFailedToApplyUpdateForWatchtower(error, containerInfo);
@@ -527,6 +536,7 @@ const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:a
         res.status(500).send(error.message);
       });
     } else {
+      DEBUG(`[apply] image ${req.body.image} not found`);
       res.sendStatus(404);
     }
   });
@@ -539,17 +549,25 @@ const DEBUG = __WEBPACK_IMPORTED_MODULE_1_debug___default()('docker-watchtower:a
    * @return {String}  500    Error message
    */
   router.post('/upload', (req, res) => {
+    DEBUG('[upload] Initiating uploader...');
     uploader(req, res, (uploadError) => {
       if (uploadError) {
+        DEBUG('[upload] Upload error', uploadError);
         res.status(uploadError.code).send(uploadError.message);
         return;
       }
 
-      watchtower.upload(req.files[0].path, { tagToLatest: !!req.query.latest }).then((repoTag) => {
+      DEBUG(`[upload] Uploading ${req.files[0].path}`);
+      watchtower.upload(req.files[0].path, {
+        tagToLatest: !!req.query.latest,
+        registryURL: req.query.registry,
+      }).then((repoTag) => {
+        DEBUG(`[upload] Upload successfully: ${repoTag}`);
         /* Image file has been loaded, remove it */
         __WEBPACK_IMPORTED_MODULE_4_fs_extra___default.a.remove(req.files[0].path);
         res.status(200).send(repoTag);
       }).catch((error) => {
+        DEBUG(`[upload] Upload failed: ${error}`);
         res.status(500).send(error.message);
       });
     });

@@ -10,7 +10,7 @@ import { version } from '../package.json';
 const IMAGE_UPLOAD_PATH = `${os.homedir()}/.watchtower/images`;
 const WEBHOOK_PERSIST_PATH = `${os.homedir()}/.watchtower/webhook`;
 const WEBHOOK_PERSIST_FILE = 'db.json';
-const DEBUG = debug('docker-watchtower:api');
+const DEBUG = debug('watchtower:server');
 
 /**
  * Create watchtower express router.
@@ -69,15 +69,18 @@ export default function (watchtower, options) {
   }).any();
 
   watchtower.on('updateFound', (image) => {
-    webhookPersist.updateFound.forEach((url) => {
-      fetch(url, {
+    DEBUG(`Got 'updateFound' event for ${image}`);
+    webhookPersist.updateFound.forEach((webhook) => {
+      DEBUG(`Calling webhook: ${webhook}`);
+      fetch(webhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `image=${image}`,
       }).then((res) => {
-        DEBUG(`POSTed 'updateFound' event with image ${image} to ${url}. ${res.json()}`);
-        if (res.status === 100) {
+        DEBUG(`Sent 'updateFound' event with image ${image} to ${webhook}.`);
+        if (res.status === 202) {
           /* Apply update immediately */
+          DEBUG(`Apply update for ${image} immediately`);
           const containerInfo = watchtower.getAvailableUpdate(image);
           if (containerInfo) {
             if (watchtower.isWatchtower(containerInfo)) {
@@ -104,22 +107,25 @@ export default function (watchtower, options) {
         }
       })
       .catch((error) => {
-        DEBUG(`Failed to POST 'updateFound' event with image ${image} to ${url}. ${error}`);
+        DEBUG(`Failed to POST 'updateFound' event with image ${image} to ${webhook}. ${error}`);
       });
     });
   });
 
   watchtower.on('updateNotFound', (image) => {
-    webhookPersist.updateNotFound.forEach((url) => {
-      fetch(url, {
+    DEBUG(`Got 'updateNotFound' event for ${image}`);
+
+    webhookPersist.updateNotFound.forEach((webhook) => {
+      DEBUG(`Calling webhook: ${webhook}`);
+      fetch(webhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `image=${image}`,
-      }).then((res) => {
-        DEBUG(`POSTed 'updateNotFound' event with image ${image} to ${url}. ${res.json()}`);
+      }).then((res) => { // eslint-disable-line
+        DEBUG(`Sent 'updateNotFound' event with image ${image} to ${webhook}.`);
       })
       .catch((error) => {
-        DEBUG(`Failed to POST 'updateNotFound' event with image ${image} to ${url}. ${error}`);
+        DEBUG(`Failed to POST 'updateNotFound' event with image ${image} to ${webhook}. ${error}`);
       });
     });
   });
@@ -134,6 +140,7 @@ export default function (watchtower, options) {
    * Get watchtower server version
    */
   router.get('/version', (req, res) => {
+    DEBUG(`[version] ${version}`);
     res.status(200).send(version);
   });
 
@@ -272,6 +279,7 @@ export default function (watchtower, options) {
         }
       }
 
+      DEBUG(`[apply] applying image ${req.body.image}`);
       watchtower.applyUpdate(containerInfo).then((updatedContainerInfo) => {
         if (watchtower.isWatchtower(containerInfo)) {
           if (options.didApplyUpdateForWatchtower) {
@@ -281,6 +289,7 @@ export default function (watchtower, options) {
           res.status(200).send(updatedContainerInfo);
         }
       }).catch((error) => {
+        DEBUG(`[apply] apply image ${req.body.image} failed: ${error.message}`);
         if (watchtower.isWatchtower(containerInfo)) {
           if (options.didFailedToApplyUpdateForWatchtower) {
             options.didFailedToApplyUpdateForWatchtower(error, containerInfo);
@@ -289,6 +298,7 @@ export default function (watchtower, options) {
         res.status(500).send(error.message);
       });
     } else {
+      DEBUG(`[apply] image ${req.body.image} not found`);
       res.sendStatus(404);
     }
   });
@@ -301,17 +311,25 @@ export default function (watchtower, options) {
    * @return {String}  500    Error message
    */
   router.post('/upload', (req, res) => {
+    DEBUG('[upload] Initiating uploader...');
     uploader(req, res, (uploadError) => {
       if (uploadError) {
+        DEBUG('[upload] Upload error', uploadError);
         res.status(uploadError.code).send(uploadError.message);
         return;
       }
 
-      watchtower.upload(req.files[0].path, { tagToLatest: !!req.query.latest }).then((repoTag) => {
+      DEBUG(`[upload] Uploading ${req.files[0].path}`);
+      watchtower.upload(req.files[0].path, {
+        tagToLatest: !!req.query.latest,
+        registryURL: req.query.registry,
+      }).then((repoTag) => {
+        DEBUG(`[upload] Upload successfully: ${repoTag}`);
         /* Image file has been loaded, remove it */
         fs.remove(req.files[0].path);
         res.status(200).send(repoTag);
       }).catch((error) => {
+        DEBUG(`[upload] Upload failed: ${error}`);
         res.status(500).send(error.message);
       });
     });
